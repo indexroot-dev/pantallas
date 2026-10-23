@@ -1,22 +1,21 @@
 import express from "express";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
-import dgram from "node:dgram";
-import { networkInterfaces } from "node:os";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
+import { lanInterfaces, startDiscoveryBeacon } from "./discovery.js";
 
 const PORT = process.env.PORT || 3000;
 const MAX_MESSAGES = 500;
 const PANELS = "panels";
-// La app Android escucha en este puerto UDP el anuncio con la dirección del servidor
-const DISCOVERY_PORT = 41234;
-const DISCOVERY_INTERVAL_MS = 3000;
 // Palabras que permiten entrar al panel web y lo que puede hacer cada una
 const USERS = new Map([
   [process.env.ACCESS_WORD || "indexroot", { canWatch: true }], // avisos + ver pantallas y cámaras en vivo
   [process.env.SENDER_WORD || "monster", { canWatch: false }], // solo enviar avisos
 ]);
+if (!process.env.ACCESS_WORD || !process.env.SENDER_WORD) {
+  console.warn("Aviso: se usan las palabras de acceso por defecto, que son públicas. Define ACCESS_WORD y SENDER_WORD.");
+}
 const APK_PATH = fileURLToPath(new URL("./android/app/build/outputs/apk/debug/app-debug.apk", import.meta.url));
 
 const app = express();
@@ -42,36 +41,8 @@ const messages = [];
 const keyOf = (name) => String(name || "").trim().toLowerCase();
 const cleanName = (name) => String(name || "").trim().slice(0, 24);
 
-const lanInterfaces = () =>
-  Object.values(networkInterfaces())
-    .flat()
-    .filter((i) => i?.family === "IPv4" && !i.internal);
-
 function lanUrls() {
   return lanInterfaces().map((i) => `http://${i.address}:${PORT}`);
-}
-
-// Dirección de broadcast de la red de una interfaz, ej. 192.168.18.96/24 -> 192.168.18.255
-function broadcastAddress({ address, netmask }) {
-  const mask = netmask.split(".").map(Number);
-  return address.split(".").map((n, k) => n | (~mask[k] & 255)).join(".");
-}
-
-// Anuncia en cada red local la dirección con la que se llega al servidor desde esa red
-function startDiscoveryBeacon() {
-  const beacon = dgram.createSocket("udp4");
-  beacon.on("error", (err) => console.warn("Anuncio en la red local:", err.message));
-  beacon.bind(() => {
-    beacon.setBroadcast(true);
-    const announce = () => {
-      for (const i of lanInterfaces()) {
-        const msg = JSON.stringify({ service: "pantallas-avisos", url: `http://${i.address}:${PORT}` });
-        beacon.send(msg, DISCOVERY_PORT, broadcastAddress(i), () => {});
-      }
-    };
-    announce();
-    setInterval(announce, DISCOVERY_INTERVAL_MS);
-  });
 }
 
 function deviceList() {
@@ -252,7 +223,8 @@ io.on("connection", (socket) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  startDiscoveryBeacon();
+  // En Docker el anuncio lo hace announce.js con la red del host (DISCOVERY=off aquí)
+  if (process.env.DISCOVERY !== "off") startDiscoveryBeacon(PORT);
   console.log(`Panel web:          http://localhost:${PORT}`);
   for (const url of lanUrls()) {
     console.log(`Dirección para la app Android: ${url}`);

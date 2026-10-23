@@ -19,9 +19,26 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      # Desde la red interna de Docker el anuncio no llega a la LAN; lo hace el servicio "anuncio"
+      DISCOVERY: "off"
     ports:
       # Abierto en la LAN para las pantallas de casa
       - "3200:3000"
+
+  # Anuncia en la LAN http://<IP de la Pi>:3200 para que la app de las pantallas encuentre sola el servidor.
+  # Usa la red del host porque el broadcast UDP no sale de la red interna de Docker.
+  anuncio:
+    build: .
+    container_name: pantallas-anuncio
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 64m
+    <<: *logs
+    command: ["node", "announce.js"]
+    environment:
+      # El mismo puerto publicado por "app"
+      ANNOUNCE_PORT: "3200"
 
   # Publica la app (pantallas.allsx.me → http://app:3000) por Cloudflare Tunnel
   cloudflared:
