@@ -16,7 +16,8 @@ const USERS = new Map([
 if (!process.env.ACCESS_WORD || !process.env.SENDER_WORD) {
   console.warn("Aviso: se usan las palabras de acceso por defecto, que son públicas. Define ACCESS_WORD y SENDER_WORD.");
 }
-const APK_PATH = fileURLToPath(new URL("./android/app/build/outputs/apk/debug/app-debug.apk", import.meta.url));
+// Lo deja ahí la compilación de la app (ver android/app/build.gradle.kts)
+const APK_PATH = fileURLToPath(new URL("./apk/avisos.apk", import.meta.url));
 
 const app = express();
 const server = createServer(app);
