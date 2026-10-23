@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    container_name: pantallas-app
+    restart: unless-stopped
+    mem_limit: 192m
+    ports:
+      - "3200:3000"
+    env_file:
+      - path: .env
+        required: false
