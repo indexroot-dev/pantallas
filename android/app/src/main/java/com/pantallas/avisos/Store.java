@@ -12,21 +12,33 @@ import java.util.List;
 
 /** Configuración y avisos pendientes guardados en la pantalla. */
 final class Store {
+    /** Página publicada del panel. La app se conecta ahí salvo que se escriba otra dirección. */
+    static final String DEFAULT_SERVER = "https://pantallas.allsx.me";
+
     private static final String PREFS = "avisos";
     private static final String KEY_SERVER = "server";
     private static final String KEY_NAME = "name";
     private static final String KEY_PENDING = "pending";
     private static final String KEY_ACKED = "acked";
+    private static final String KEY_CONFIG_VERSION = "config_version";
     private static final int MAX_ACKED = 200;
+    // 2: el servidor pasó a ser DEFAULT_SERVER; se descartan las direcciones de la red local guardadas antes
+    private static final int CONFIG_VERSION = 2;
 
     private Store() {}
 
-    private static SharedPreferences prefs(Context c) {
-        return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    private static synchronized SharedPreferences prefs(Context c) {
+        SharedPreferences prefs = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (prefs.getInt(KEY_CONFIG_VERSION, 1) < CONFIG_VERSION) {
+            // Los avisos guardados eran del servidor anterior
+            prefs.edit().remove(KEY_SERVER).remove(KEY_PENDING).remove(KEY_ACKED)
+                    .putInt(KEY_CONFIG_VERSION, CONFIG_VERSION).commit();
+        }
+        return prefs;
     }
 
     static String server(Context c) {
-        return prefs(c).getString(KEY_SERVER, "");
+        return prefs(c).getString(KEY_SERVER, DEFAULT_SERVER);
     }
 
     static String name(Context c) {
@@ -44,11 +56,6 @@ final class Store {
             editor.remove(KEY_PENDING).remove(KEY_ACKED);
         }
         editor.apply();
-    }
-
-    /** El mismo servidor cambió de dirección: se conservan los avisos guardados. */
-    static synchronized void updateServer(Context c, String server) {
-        prefs(c).edit().putString(KEY_SERVER, server).apply();
     }
 
     /** Avisos que llegaron y todavía no se confirmaron con "Entendido". */

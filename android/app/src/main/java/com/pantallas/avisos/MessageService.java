@@ -68,15 +68,6 @@ public class MessageService extends Service {
     private volatile boolean frameInFlight;
     private volatile long frameSentAt;
 
-    /** Si se pierde la conexión y el servidor se anuncia con otra dirección (cambió su IP), se usa la nueva. */
-    private final ServerDiscovery.Listener discovery = url -> main.post(() -> {
-        Socket s = socket;
-        if ((s != null && s.connected()) || url.equals(Store.server(this))) return;
-        Log.i("Avisos", "Servidor encontrado en " + url);
-        Store.updateServer(this, url);
-        reconnect();
-    });
-
     static void start(Context context) {
         context.startForegroundService(new Intent(context, MessageService.class));
     }
@@ -98,7 +89,6 @@ public class MessageService extends Service {
         status = "Conectando…";
         updateForeground(false, false);
         connect();
-        ServerDiscovery.addListener(this, discovery);
     }
 
     @Override
@@ -113,7 +103,6 @@ public class MessageService extends Service {
 
     @Override
     public void onDestroy() {
-        ServerDiscovery.removeListener(discovery);
         stopLive();
         if (screen != null) {
             ScreenStreamer old = screen;
@@ -172,17 +161,6 @@ public class MessageService extends Service {
         });
         socket.on("live:stop", args -> main.post(this::stopLive));
         socket.connect();
-    }
-
-    private void reconnect() {
-        stopLive();
-        if (socket != null) {
-            socket.off();
-            socket.disconnect();
-            socket = null;
-        }
-        setStatus("Conectando…");
-        connect();
     }
 
     private JSONObject joinData(String name) {

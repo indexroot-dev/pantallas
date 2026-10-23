@@ -40,8 +40,6 @@ public class MainActivity extends Activity {
     private Button autostartButton;
     private EditText serverInput;
     private EditText nameInput;
-    /** Última dirección que se escribió sola, para no pisar una que haya escrito la persona. */
-    private String autoServer = "";
 
     private final BroadcastReceiver changedReceiver = new BroadcastReceiver() {
         @Override
@@ -49,16 +47,6 @@ public class MainActivity extends Activity {
             render();
         }
     };
-
-    /** Completa la dirección del servidor con la que anuncia en la red local. */
-    private final ServerDiscovery.Listener discovery = url -> runOnUiThread(() -> {
-        String typed = serverInput.getText().toString().trim();
-        if (url.equals(typed)) return;
-        if (!typed.isEmpty() && !typed.equals(autoServer) && !typed.equals(Store.server(this))) return;
-        autoServer = url;
-        serverInput.setText(url);
-        Toast.makeText(this, "Servidor encontrado: " + url, Toast.LENGTH_SHORT).show();
-    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,13 +86,11 @@ public class MainActivity extends Activity {
         } else {
             registerReceiver(changedReceiver, filter);
         }
-        ServerDiscovery.addListener(this, discovery);
         render();
     }
 
     @Override
     protected void onStop() {
-        ServerDiscovery.removeListener(discovery);
         unregisterReceiver(changedReceiver);
         super.onStop();
     }
@@ -138,10 +124,11 @@ public class MainActivity extends Activity {
     private void saveAndConnect() {
         String server = serverInput.getText().toString().trim();
         String name = nameInput.getText().toString().trim();
-        if (server.isEmpty() || name.isEmpty()) {
-            Toast.makeText(this, "Escribe la dirección y el nombre", Toast.LENGTH_SHORT).show();
+        if (name.isEmpty()) {
+            Toast.makeText(this, "Escribe el nombre de esta pantalla", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (server.isEmpty()) server = Store.DEFAULT_SERVER;
         if (!server.startsWith("http://") && !server.startsWith("https://")) server = "http://" + server;
 
         Store.saveConfig(this, server, name);

@@ -1,9 +1,9 @@
 import express from "express";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { networkInterfaces } from "node:os";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
-import { lanInterfaces, startDiscoveryBeacon } from "./discovery.js";
 
 const PORT = process.env.PORT || 3000;
 const MAX_MESSAGES = 500;
@@ -13,9 +13,6 @@ const USERS = new Map([
   [process.env.ACCESS_WORD || "indexroot", { canWatch: true }], // avisos + ver pantallas y cámaras en vivo
   [process.env.SENDER_WORD || "monster", { canWatch: false }], // solo enviar avisos
 ]);
-if (!process.env.ACCESS_WORD || !process.env.SENDER_WORD) {
-  console.warn("Aviso: se usan las palabras de acceso por defecto, que son públicas. Define ACCESS_WORD y SENDER_WORD.");
-}
 // Lo deja ahí la compilación de la app (ver android/app/build.gradle.kts)
 const APK_PATH = fileURLToPath(new URL("./apk/avisos.apk", import.meta.url));
 
@@ -43,7 +40,10 @@ const keyOf = (name) => String(name || "").trim().toLowerCase();
 const cleanName = (name) => String(name || "").trim().slice(0, 24);
 
 function lanUrls() {
-  return lanInterfaces().map((i) => `http://${i.address}:${PORT}`);
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((i) => i?.family === "IPv4" && !i.internal)
+    .map((i) => `http://${i.address}:${PORT}`);
 }
 
 function deviceList() {
@@ -224,8 +224,6 @@ io.on("connection", (socket) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  // En Docker el anuncio lo hace announce.js con la red del host (DISCOVERY=off aquí)
-  if (process.env.DISCOVERY !== "off") startDiscoveryBeacon(PORT);
   console.log(`Panel web:          http://localhost:${PORT}`);
   for (const url of lanUrls()) {
     console.log(`Dirección para la app Android: ${url}`);

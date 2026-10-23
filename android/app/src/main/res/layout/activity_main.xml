@@ -83,7 +83,7 @@
                 android:id="@+id/server"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="http://192.168.1.10:3000"
+                android:hint="https://pantallas.allsx.me"
                 android:importantForAutofill="no"
                 android:inputType="textUri"
                 android:textColor="@color/text" />

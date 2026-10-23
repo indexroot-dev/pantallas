@@ -233,8 +233,11 @@ function join(name) {
     devices = res.devices;
     messages = res.messages;
     $("me").textContent = me;
-    $("server-urls").replaceChildren(...res.serverUrls.map((url) => el("code", null, url)));
-    $("apk-urls").replaceChildren(...res.serverUrls.map((url) => el("code", null, `${url}/avisos.apk`)));
+    // La dirección de esta página (ej. https://pantallas.allsx.me); desde localhost, las de la red local
+    const isLocal = ["localhost", "127.0.0.1"].includes(location.hostname);
+    const urls = isLocal ? res.serverUrls : [location.origin];
+    $("server-urls").replaceChildren(...urls.map((url) => el("code", null, url)));
+    $("apk-urls").replaceChildren(...urls.map((url) => el("code", null, `${url}/avisos.apk`)));
     if (current !== "*" && !findDevice(current)) current = "*";
 
     offlineBanner.hidden = true;
