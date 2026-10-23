@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panel de avisos</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Pantalla de entrada -->
+  <section id="login" class="login">
+    <form id="login-form" class="card">
+      <h1>Panel de avisos</h1>
+      <label for="name">Palabra de acceso</label>
+      <input id="name" type="password" maxlength="24" autocomplete="off" autofocus />
+      <p id="login-error" class="error" hidden></p>
+      <button type="submit">Entrar</button>
+      <a class="download" href="/avisos.apk" download>Descargar app Android</a>
+    </form>
+  </section>
+
+  <!-- Panel -->
+  <main id="panel" class="chat" hidden>
+    <aside class="sidebar">
+      <div class="profile">
+        <span class="me-name">Enviando como <strong id="me"></strong></span>
+        <button id="logout" class="logout" type="button">Salir</button>
+      </div>
+
+      <button id="all" class="conv-item" type="button">
+        <span class="hash">*</span>
+        <span class="user-info">
+          <span class="user-name">Todas las pantallas</span>
+          <span id="all-status" class="user-status"></span>
+        </span>
+      </button>
+
+      <h2>Pantallas · <span id="online-count">0</span> en línea</h2>
+      <ul id="devices"></ul>
+      <p id="no-devices" class="hint" hidden>
+        Aún no hay pantallas. Instala la app Android y conéctala a:
+        <span id="server-urls"></span>
+      </p>
+
+      <a class="download" href="/avisos.apk" download>Descargar app Android</a>
+      <p class="hint">Desde la pantalla, abre en el navegador: <span id="apk-urls"></span></p>
+    </aside>
+
+    <section class="room">
+      <header class="room-header">
+        <div class="room-heading">
+          <div id="room-title" class="room-title"></div>
+          <div id="room-sub" class="room-sub"></div>
+        </div>
+        <div id="live-buttons" class="live-buttons"></div>
+      </header>
+      <p id="offline-banner" class="banner" hidden>Sin conexión con el servidor. Reconectando…</p>
+
+      <!-- Vista en vivo de la pantalla o una cámara del dispositivo -->
+      <div id="live" class="live" hidden>
+        <div class="live-bar">
+          <span class="live-badge">● En vivo</span>
+          <span id="live-title" class="live-title"></span>
+          <span id="live-status" class="live-status"></span>
+          <button id="live-close" class="live-close" type="button">Cerrar</button>
+        </div>
+        <canvas id="live-canvas" class="live-canvas" hidden></canvas>
+      </div>
+      <ol id="messages" class="messages"></ol>
+      <p id="send-error" class="send-error" hidden></p>
+      <form id="send-form" class="composer">
+        <input id="text" maxlength="1000" autocomplete="off" placeholder="Escribe un aviso…" />
+        <button type="submit">Enviar</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
