@@ -1,11 +1,37 @@
+# En la Raspberry Pi:  docker compose up -d --build
+# Variables en .env: TUNNEL_TOKEN (túnel), ACCESS_WORD y SENDER_WORD (palabras de acceso)
+
+# Logs acotados para no llenar el disco
+x-logs: &logs
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   app:
     build: .
     container_name: pantallas-app
     restart: unless-stopped
     mem_limit: 192m
-    ports:
-      - "3200:3000"
+    <<: *logs
     env_file:
       - path: .env
         required: false
+    ports:
+      # Abierto en la LAN para las pantallas de casa
+      - "3200:3000"
+
+  # Publica la app (pantallas.allsx.me → http://app:3000) por Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: pantallas-tunel
+    restart: unless-stopped
+    mem_limit: 128m
+    <<: *logs
+    depends_on:
+      - app
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
