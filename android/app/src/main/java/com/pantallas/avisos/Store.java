@@ -46,6 +46,11 @@ final class Store {
         editor.apply();
     }
 
+    /** El mismo servidor cambió de dirección: se conservan los avisos guardados. */
+    static synchronized void updateServer(Context c, String server) {
+        prefs(c).edit().putString(KEY_SERVER, server).apply();
+    }
+
     /** Avisos que llegaron y todavía no se confirmaron con "Entendido". */
     static synchronized List<JSONObject> pending(Context c) {
         JSONArray array = readArray(c, KEY_PENDING);
