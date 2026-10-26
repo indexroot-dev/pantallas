@@ -22,6 +22,9 @@ const liveView = $("live");
 const liveTitle = $("live-title");
 const liveStatus = $("live-status");
 const liveCanvas = $("live-canvas");
+const controlButton = $("live-control");
+const controlBar = $("control-bar");
+const controlInput = $("control-input");
 
 const STORAGE_KEY = "panel-name";
 
@@ -32,6 +35,8 @@ let messages = [];
 let current = "*"; // "*" = todos, o el nombre de una pantalla
 let live = null; // lo que se está viendo en vivo: { device, source: "screen" | "camera", camera, label }
 let drawing = false;
+let controlling = false; // "Tomar el control": los toques sobre la imagen van a la pantalla
+let touch = null; // toque en curso sobre la imagen: { id, x, y, at }
 
 const findDevice = (name) => devices.find((d) => d.name === name);
 
@@ -170,6 +175,7 @@ function watch(s) {
   liveCanvas.hidden = true;
   liveView.hidden = false;
   renderHeader();
+  renderControl();
   socket.emit("panel:watch", { device: current, source: s.source, camera: s.camera }, (res) => {
     if (!res.ok) setLiveStatus(res.error);
   });
@@ -180,6 +186,7 @@ function stopLive() {
   live = null;
   socket.emit("panel:unwatch");
   liveView.hidden = true;
+  renderControl();
 }
 
 function drawFrame(image, rotation) {
@@ -199,6 +206,81 @@ function drawFrame(image, rotation) {
 $("live-close").addEventListener("click", () => {
   stopLive();
   renderHeader();
+});
+
+// ---------- Tomar el control ----------
+
+// Solo se controla la pantalla (no las cámaras)
+function renderControl() {
+  const canControl = !!live && live.source === "screen";
+  if (!canControl) controlling = false;
+  controlButton.hidden = !canControl;
+  controlButton.textContent = controlling ? "Soltar el control" : "Tomar el control";
+  controlButton.classList.toggle("active", controlling);
+  controlBar.hidden = !controlling;
+  liveView.classList.toggle("controlling", controlling);
+  touch = null;
+}
+
+const sendControl = (command) => socket.emit("panel:control", command);
+
+controlButton.addEventListener("click", () => {
+  controlling = !controlling;
+  renderControl();
+  if (controlling) liveCanvas.focus();
+});
+
+// Posición entre 0 y 1 sobre la imagen
+function pointOf(e) {
+  const rect = liveCanvas.getBoundingClientRect();
+  return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
+}
+
+liveCanvas.addEventListener("pointerdown", (e) => {
+  if (!controlling || e.button !== 0) return;
+  e.preventDefault();
+  liveCanvas.focus();
+  liveCanvas.setPointerCapture(e.pointerId);
+  touch = { id: e.pointerId, ...pointOf(e), at: performance.now() };
+});
+
+liveCanvas.addEventListener("pointerup", (e) => {
+  if (!controlling || touch?.id !== e.pointerId) return;
+  const end = pointOf(e);
+  // La duración real: un toque rápido, un deslizamiento o una pulsación larga
+  const ms = Math.round(Math.min(3000, Math.max(40, performance.now() - touch.at)));
+  sendControl({ type: "gesture", x1: touch.x, y1: touch.y, x2: end.x, y2: end.y, ms });
+  touch = null;
+});
+
+liveCanvas.addEventListener("pointercancel", () => {
+  touch = null;
+});
+
+const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Enter: "enter", Backspace: "backspace", Escape: "back" };
+
+liveCanvas.addEventListener("keydown", (e) => {
+  if (!controlling || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (KEYS[e.key]) {
+    e.preventDefault();
+    sendControl({ type: "key", key: KEYS[e.key] });
+  } else if (e.key.length === 1) {
+    e.preventDefault();
+    sendControl({ type: "text", text: e.key });
+  }
+});
+
+controlBar.addEventListener("click", (e) => {
+  const key = e.target.closest("button[data-key]")?.dataset.key;
+  if (key) sendControl({ type: "key", key });
+});
+
+$("control-text").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = controlInput.value;
+  if (!text) return;
+  sendControl({ type: "text", text });
+  controlInput.value = "";
 });
 
 function renderAll() {
@@ -334,6 +416,7 @@ socket.on("live:source", (src) => {
   Object.assign(live, s);
   liveTitle.textContent = `${live.device} · ${s.source === "screen" ? "Pantalla" : s.label}`;
   renderHeader();
+  renderControl();
 });
 
 socket.on("connect", () => {

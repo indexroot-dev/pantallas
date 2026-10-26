@@ -48,6 +48,20 @@
             android:exported="false"
             android:foregroundServiceType="remoteMessaging|camera|mediaProjection" />
 
+        <!-- "Tomar el control" desde el panel. Se activa a mano en Ajustes > Accesibilidad -->
+        <service
+            android:name=".ControlService"
+            android:exported="true"
+            android:label="@string/control_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/control_service" />
+        </service>
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
