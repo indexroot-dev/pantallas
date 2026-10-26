@@ -62,32 +62,9 @@
           <span class="live-badge">● En vivo</span>
           <span id="live-title" class="live-title"></span>
           <span id="live-status" class="live-status"></span>
-          <button id="live-control" class="live-btn" type="button" hidden>Tomar el control</button>
           <button id="live-close" class="live-close" type="button">Cerrar</button>
         </div>
-        <canvas id="live-canvas" class="live-canvas" tabindex="0" hidden></canvas>
-        <!-- Con "Tomar el control": se toca y arrastra sobre la imagen, y estos botones hacen de los del dispositivo -->
-        <div id="control-bar" class="control-bar" hidden>
-          <div class="control-group">
-            <button type="button" data-key="back" title="Atrás (Esc)">◀ Atrás</button>
-            <button type="button" data-key="home" title="Inicio">⌂ Inicio</button>
-            <button type="button" data-key="recents" title="Apps recientes">▢ Recientes</button>
-            <button type="button" data-key="notifications" title="Notificaciones">Notificaciones</button>
-          </div>
-          <div class="control-group" title="Flechas del control remoto (para teles)">
-            <button type="button" data-key="left" aria-label="Izquierda">←</button>
-            <button type="button" data-key="up" aria-label="Arriba">↑</button>
-            <button type="button" data-key="down" aria-label="Abajo">↓</button>
-            <button type="button" data-key="right" aria-label="Derecha">→</button>
-            <button type="button" data-key="enter" title="Aceptar (Enter)">OK</button>
-          </div>
-          <form id="control-text" class="control-group control-text">
-            <input id="control-input" maxlength="500" autocomplete="off" placeholder="Escribir en la pantalla…" />
-            <button type="submit">Escribir</button>
-            <button type="button" data-key="backspace" title="Borrar">⌫</button>
-          </form>
-          <p class="control-hint">Toca o arrastra sobre la imagen. Mantén pulsado para una pulsación larga. Con la imagen seleccionada: flechas, Enter, Retroceso, Esc (Atrás) y escribir.</p>
-        </div>
+        <canvas id="live-canvas" class="live-canvas" hidden></canvas>
       </div>
       <ol id="messages" class="messages"></ol>
       <p id="send-error" class="send-error" hidden></p>

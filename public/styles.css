@@ -273,48 +273,6 @@ code {
   max-width: 100%;
   max-height: 45vh;
 }
-.live-canvas:focus { outline: none; }
-.live.controlling .live-canvas {
-  max-height: 65vh;
-  cursor: crosshair;
-  touch-action: none;
-  outline: 2px solid var(--accent);
-}
-
-.control-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  padding: 8px 16px;
-  background: var(--panel);
-  font-size: .85rem;
-}
-.control-group { display: flex; flex-wrap: wrap; gap: 4px; }
-.control-bar button {
-  min-width: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  font-size: .85rem;
-  cursor: pointer;
-}
-.control-bar button:hover { background: var(--bg); }
-.control-bar button:active { background: var(--active); }
-.control-text { flex: 1; min-width: 220px; flex-wrap: nowrap; }
-.control-text input {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-}
-.control-hint { flex-basis: 100%; margin: 0; color: var(--muted); }
 
 .messages {
   flex: 1;

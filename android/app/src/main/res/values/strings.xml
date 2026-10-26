@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Avisos</string>
-    <string name="control_label">Control remoto de Avisos</string>
-    <string name="control_description">Permite que un administrador del panel de avisos toque, deslice y escriba en esta pantalla mientras la está viendo en vivo. Solo se usa cuando alguien pulsa \"Tomar el control\" en el panel.</string>
 </resources>

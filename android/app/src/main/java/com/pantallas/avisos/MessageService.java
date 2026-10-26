@@ -171,14 +171,6 @@ public class MessageService extends Service {
             main.post(() -> startLive(request));
         });
         socket.on("live:stop", args -> main.post(this::stopLive));
-        // "Tomar el control" en el panel: toques, teclas y texto
-        socket.on("control", args -> {
-            JSONObject command = (JSONObject) args[0];
-            main.post(() -> {
-                String problem = ControlService.run(command);
-                if (problem != null) sink.onStatus(problem);
-            });
-        });
         socket.connect();
     }
 

@@ -36,14 +36,6 @@
             android:text="Permitir que se abra al encender"
             android:visibility="gone" />
 
-        <Button
-            android:id="@+id/remote_control"
-            style="@android:style/Widget.Material.Button.Borderless.Colored"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Permitir control remoto"
-            android:visibility="gone" />
-
         <TextView
             android:id="@+id/empty"
             android:layout_width="match_parent"

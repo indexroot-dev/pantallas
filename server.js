@@ -61,23 +61,6 @@ function cleanCameras(list) {
   return list.slice(0, 8).map((c) => ({ id: String(c?.id ?? "").slice(0, 16), label: String(c?.label ?? "Cámara").slice(0, 40) }));
 }
 
-const CONTROL_KEYS = new Set(["back", "home", "recents", "notifications", "up", "down", "left", "right", "enter", "backspace"]);
-const fraction = (v) => Math.min(1, Math.max(0, Number(v) || 0));
-
-// Coordenadas entre 0 y 1 sobre la imagen de la pantalla
-function cleanControl(data) {
-  if (data?.type === "gesture") {
-    const ms = Math.min(3000, Math.max(1, Math.round(Number(data.ms) || 50)));
-    return { type: "gesture", x1: fraction(data.x1), y1: fraction(data.y1), x2: fraction(data.x2), y2: fraction(data.y2), ms };
-  }
-  if (data?.type === "key" && CONTROL_KEYS.has(data.key)) return { type: "key", key: data.key };
-  if (data?.type === "text") {
-    const text = String(data.text ?? "").slice(0, 500);
-    return text ? { type: "text", text } : null;
-  }
-  return null;
-}
-
 // Los paneles que están viendo una pantalla en vivo están en esta sala
 const liveRoom = (key) => `live:${key}`;
 const liveViewers = (key) => io.sockets.adapter.rooms.get(liveRoom(key))?.size ?? 0;
@@ -149,15 +132,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("panel:unwatch", () => stopWatching(socket));
-
-  // "Tomar el control": toques, teclas y texto hacia la pantalla que se está viendo
-  socket.on("panel:control", (data) => {
-    if (!socket.data.panel || !socket.data.canWatch) return;
-    const device = devices.get(socket.data.watching);
-    if (!device?.socketId || device.live?.type !== "screen") return;
-    const command = cleanControl(data);
-    if (command) io.to(device.socketId).emit("control", command);
-  });
 
   socket.on("panel:send", (data, ack) => {
     const reply = typeof ack === "function" ? ack : () => {};

@@ -38,7 +38,6 @@ public class MainActivity extends Activity {
     private LinearLayout configForm;
     private Button changeButton;
     private Button autostartButton;
-    private Button controlButton;
     private EditText serverInput;
     private EditText nameInput;
 
@@ -60,7 +59,6 @@ public class MainActivity extends Activity {
         configForm = findViewById(R.id.config_form);
         changeButton = findViewById(R.id.change);
         autostartButton = findViewById(R.id.autostart);
-        controlButton = findViewById(R.id.remote_control);
         serverInput = findViewById(R.id.server);
         nameInput = findViewById(R.id.name);
 
@@ -74,7 +72,6 @@ public class MainActivity extends Activity {
             changeButton.setVisibility(View.GONE);
         });
         autostartButton.setOnClickListener(v -> openOverlaySettings());
-        controlButton.setOnClickListener(v -> openAccessibilitySettings());
 
         requestMissingPermissions();
         if (Store.isConfigured(this)) MessageService.start(this);
@@ -104,7 +101,6 @@ public class MainActivity extends Activity {
         if (!configured) configForm.setVisibility(View.VISIBLE);
         changeButton.setVisibility(configured && configForm.getVisibility() != View.VISIBLE ? View.VISIBLE : View.GONE);
         autostartButton.setVisibility(BootReceiver.canOpenOnBoot(this) ? View.GONE : View.VISIBLE);
-        controlButton.setVisibility(ControlService.isEnabled() ? View.GONE : View.VISIBLE);
 
         List<JSONObject> pending = Store.pending(this);
         emptyText.setVisibility(pending.isEmpty() ? View.VISIBLE : View.GONE);
@@ -168,20 +164,6 @@ public class MainActivity extends Activity {
         } catch (ActivityNotFoundException e) {
             // Algunos Android TV no tienen esa pantalla: abrir la ficha de la app
             startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, app));
-        }
-    }
-
-    /**
-     * Abre Accesibilidad para activar "Control remoto de Avisos". Desde Android 13, si la app se
-     * instaló desde el navegador, antes hay que ir a la ficha de la app, menú ⋮ y "Permitir ajustes restringidos".
-     */
-    private void openAccessibilitySettings() {
-        Toast.makeText(this, "Activa \"Control remoto de Avisos\". Si aparece como restringido, permítelo desde la ficha de la app (menú ⋮).",
-                Toast.LENGTH_LONG).show();
-        try {
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-        } catch (ActivityNotFoundException e) {
-            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
         }
     }
 
