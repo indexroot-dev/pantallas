@@ -1,5 +1,5 @@
 # En la Raspberry Pi:  docker compose up -d --build
-# Variables en .env: TUNNEL_TOKEN (túnel), ADMIN_PASSWORD (contraseña del usuario admin; por defecto indexroot)
+# Variables en .env: TUNNEL_TOKEN (túnel), ACCESS_WORD y SENDER_WORD (palabras de acceso)
 
 # Logs acotados para no llenar el disco
 x-logs: &logs
@@ -22,9 +22,6 @@ services:
     ports:
       # Abierto en la LAN para las pantallas de casa
       - "3200:3000"
-    volumes:
-      # Usuarios y códigos de grupo (data/usuarios.json); guardarlo fuera de la Pi de vez en cuando
-      - ./data:/app/data
 
   # Publica la app (pantallas.allsx.me → http://app:3000) por Cloudflare Tunnel
   cloudflared:

@@ -155,7 +155,8 @@ public class MessageService extends Service {
 
         socket.on(Socket.EVENT_CONNECT, args -> {
             frameInFlight = false;
-            socket.emit("device:join", new Object[]{joinData(name)}, reply -> onJoined(name, (JSONObject) reply[0]));
+            setStatus("Conectado como " + name);
+            socket.emit("device:join", joinData(name));
         });
         socket.on(Socket.EVENT_DISCONNECT, args -> {
             boolean replaced = args.length > 0 && "io server disconnect".equals(args[0]);
@@ -175,20 +176,10 @@ public class MessageService extends Service {
 
     private JSONObject joinData(String name) {
         try {
-            return new JSONObject().put("name", name).put("code", Store.code(this)).put("cameras", CameraStreamer.list(this));
+            return new JSONObject().put("name", name).put("cameras", CameraStreamer.list(this));
         } catch (JSONException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    /** Con un código de grupo que no existe, el servidor no la acepta: se muestra para que lo corrijan. */
-    private void onJoined(String name, JSONObject reply) {
-        if (!reply.optBoolean("ok")) {
-            setStatus(reply.optString("error", "El servidor no aceptó la pantalla"));
-            return;
-        }
-        String group = reply.optString("group");
-        setStatus("Conectado como " + name + (group.isEmpty() ? "" : " · grupo " + group));
     }
 
     private void onMessage(JSONObject msg) {

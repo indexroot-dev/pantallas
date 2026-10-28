@@ -29,7 +29,6 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 /** Muestra el estado de la conexión, los avisos pendientes y la configuración. */
 public class MainActivity extends Activity {
@@ -40,7 +39,6 @@ public class MainActivity extends Activity {
     private Button changeButton;
     private Button autostartButton;
     private EditText serverInput;
-    private EditText codeInput;
     private EditText nameInput;
 
     private final BroadcastReceiver changedReceiver = new BroadcastReceiver() {
@@ -62,13 +60,11 @@ public class MainActivity extends Activity {
         changeButton = findViewById(R.id.change);
         autostartButton = findViewById(R.id.autostart);
         serverInput = findViewById(R.id.server);
-        codeInput = findViewById(R.id.group_code);
         nameInput = findViewById(R.id.name);
 
         applySystemBarInsets(findViewById(R.id.root));
 
         serverInput.setText(Store.server(this));
-        codeInput.setText(Store.code(this));
         nameInput.setText(Store.name(this));
         findViewById(R.id.connect).setOnClickListener(v -> saveAndConnect());
         changeButton.setOnClickListener(v -> {
@@ -127,7 +123,6 @@ public class MainActivity extends Activity {
 
     private void saveAndConnect() {
         String server = serverInput.getText().toString().trim();
-        String code = codeInput.getText().toString().trim().toUpperCase(Locale.ROOT);
         String name = nameInput.getText().toString().trim();
         if (name.isEmpty()) {
             Toast.makeText(this, "Escribe el nombre de esta pantalla", Toast.LENGTH_SHORT).show();
@@ -136,9 +131,8 @@ public class MainActivity extends Activity {
         if (server.isEmpty()) server = Store.DEFAULT_SERVER;
         if (!server.startsWith("http://") && !server.startsWith("https://")) server = "http://" + server;
 
-        Store.saveConfig(this, server, code, name);
+        Store.saveConfig(this, server, name);
         serverInput.setText(server);
-        codeInput.setText(code);
         stopService(new Intent(this, MessageService.class));
         MessageService.status = "Conectando…";
         MessageService.start(this);

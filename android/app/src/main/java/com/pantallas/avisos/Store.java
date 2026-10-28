@@ -18,7 +18,6 @@ final class Store {
     private static final String PREFS = "avisos";
     private static final String KEY_SERVER = "server";
     private static final String KEY_NAME = "name";
-    private static final String KEY_CODE = "code";
     private static final String KEY_PENDING = "pending";
     private static final String KEY_ACKED = "acked";
     private static final String KEY_CONFIG_VERSION = "config_version";
@@ -46,20 +45,14 @@ final class Store {
         return prefs(c).getString(KEY_NAME, "");
     }
 
-    /** Código del grupo del usuario dueño de la pantalla. Vacío: la pantalla es del administrador. */
-    static String code(Context c) {
-        return prefs(c).getString(KEY_CODE, "");
-    }
-
     static boolean isConfigured(Context c) {
         return !server(c).isEmpty() && !name(c).isEmpty();
     }
 
-    static synchronized void saveConfig(Context c, String server, String code, String name) {
-        SharedPreferences.Editor editor = prefs(c).edit()
-                .putString(KEY_SERVER, server).putString(KEY_CODE, code).putString(KEY_NAME, name);
-        // Con otro servidor, otro grupo u otro nombre, los avisos guardados ya no aplican
-        if (!server.equals(server(c)) || !code.equals(code(c)) || !name.equalsIgnoreCase(name(c))) {
+    static synchronized void saveConfig(Context c, String server, String name) {
+        SharedPreferences.Editor editor = prefs(c).edit().putString(KEY_SERVER, server).putString(KEY_NAME, name);
+        // Con otro servidor u otro nombre, los avisos guardados ya no aplican
+        if (!server.equals(server(c)) || !name.equalsIgnoreCase(name(c))) {
             editor.remove(KEY_PENDING).remove(KEY_ACKED);
         }
         editor.apply();

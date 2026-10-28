@@ -1,4 +1,2 @@
 node_modules/
 .env
-# Usuarios y grupos (en la Pi: /srv/pantallas/data)
-data/
