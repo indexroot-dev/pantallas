@@ -4,9 +4,11 @@ const $ = (id) => document.getElementById(id);
 const loginView = $("login");
 const panelView = $("panel");
 const loginForm = $("login-form");
-const nameInput = $("name");
+const loginUser = $("login-user");
+const loginPassword = $("login-password");
 const loginError = $("login-error");
 const allItem = $("all");
+const adminItem = $("admin-item");
 const devicesList = $("devices");
 const onlineCount = $("online-count");
 const noDevices = $("no-devices");
@@ -22,26 +24,36 @@ const liveView = $("live");
 const liveTitle = $("live-title");
 const liveStatus = $("live-status");
 const liveCanvas = $("live-canvas");
+const adminView = $("admin-view");
+const adminError = $("admin-error");
+const groupsList = $("groups-list");
+const usersList = $("users-list");
+const newGroupManager = $("new-group-manager");
 
-const STORAGE_KEY = "panel-name";
+const STORAGE_KEY = "panel-session";
+const ADMIN_VIEW = "@admin";
 
-let me = null;
-let canWatch = false; // si este usuario puede ver pantallas y cámaras en vivo
+let me = null; // { id, name, isAdmin, groups: [{ id, name, code }] }
 let devices = [];
 let messages = [];
-let current = "*"; // "*" = todos, o el nombre de una pantalla
+let admin = { groups: [], users: [] }; // solo para el admin
+let current = "*"; // "*" = todas, ADMIN_VIEW = grupos y usuarios, o el id de una pantalla
 let live = null; // lo que se está viendo en vivo: { device, source: "screen" | "camera", camera, label }
 let drawing = false;
 
-const findDevice = (name) => devices.find((d) => d.name === name);
+const findDevice = (id) => devices.find((d) => d.id === id);
+// Con pantallas de varios grupos, los nombres se pueden repetir
+const showsGroups = () => me?.isAdmin || me?.groups.length > 1;
+const deviceLabel = (d) => (showsGroups() ? `${d.name} · ${d.group || "sin grupo"}` : d.name);
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-function loadName() {
+function loadToken() {
   try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
 }
-function saveName(name) {
-  try { localStorage.setItem(STORAGE_KEY, name); } catch {}
+function saveToken(token) {
+  try { localStorage.setItem(STORAGE_KEY, token); } catch {}
 }
-function clearName() {
+function clearToken() {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 }
 
@@ -64,6 +76,13 @@ function el(tag, className, text) {
   return node;
 }
 
+function button(text, className, onClick) {
+  const btn = el("button", className, text);
+  btn.type = "button";
+  btn.addEventListener("click", onClick);
+  return btn;
+}
+
 // ---------- Render ----------
 
 function statusChip(msg) {
@@ -76,25 +95,48 @@ function messageElement(msg) {
   const li = el("li", "msg mine");
   li.dataset.id = msg.id;
   const meta = el("div", "meta");
-  if (current === "*") meta.append(el("span", "author", `Para ${msg.to}`));
+  if (current === "*") {
+    const d = findDevice(msg.device);
+    meta.append(el("span", "author", `Para ${d ? deviceLabel(d) : msg.to}`));
+  }
+  // Los avisos de un grupo los pueden mandar su usuario y el admin
+  if (msg.from !== me.name) meta.append(el("span", "author", `de ${msg.from}`));
   meta.append(el("time", null, formatTime(msg.at)), statusChip(msg));
   li.append(meta, el("div", null, msg.text));
   return li;
 }
 
 function visibleMessages() {
-  return current === "*" ? messages : messages.filter((m) => m.to === current);
+  return current === "*" ? messages : messages.filter((m) => m.device === current);
 }
 
 function renderMessages() {
+  if (current === ADMIN_VIEW) return;
   const list = visibleMessages();
   if (list.length === 0) {
-    const hint = current === "*" ? "Aún no has enviado avisos." : `Aún no has enviado avisos a ${current}.`;
+    const d = findDevice(current);
+    const hint = d ? `Aún no hay avisos para ${d.name}.` : "Aún no hay avisos.";
     messagesList.replaceChildren(el("li", "system", hint));
   } else {
     messagesList.replaceChildren(...list.map(messageElement));
   }
   messagesList.scrollTop = messagesList.scrollHeight;
+}
+
+// Los códigos que el usuario escribe en la app Android de sus pantallas
+function renderMyGroups() {
+  $("my-groups").hidden = me.isAdmin;
+  if (me.isAdmin) return;
+  $("my-groups-list").replaceChildren(
+    ...me.groups.map((g) => {
+      const li = el("li");
+      li.append(el("span", "my-group-name", g.name), el("strong", "group-code-value", g.code));
+      return li;
+    })
+  );
+  $("my-groups-hint").textContent = me.groups.length
+    ? "Escribe el código en la app Android de cada pantalla, junto con su nombre."
+    : "Aún no administras ningún grupo. Pídele al administrador que te asigne uno.";
 }
 
 function renderSidebar() {
@@ -103,17 +145,22 @@ function renderSidebar() {
   onlineCount.textContent = online;
   noDevices.hidden = devices.length > 0;
   allItem.classList.toggle("active", current === "*");
-  $("all-status").textContent = pending ? `${pending} sin confirmar` : `${devices.length} pantallas`;
+  $("all-name").textContent = me.isAdmin ? "Todas las pantallas" : "Todas mis pantallas";
+  $("all-status").textContent = pending ? `${pending} sin confirmar` : plural(devices.length, "pantalla", "pantallas");
 
-  const sorted = [...devices].sort((a, b) => b.online - a.online || a.name.localeCompare(b.name));
+  adminItem.hidden = !me.isAdmin;
+  adminItem.classList.toggle("active", current === ADMIN_VIEW);
+  $("admin-status").textContent = `${plural(admin.groups.length, "grupo", "grupos")} · ${plural(admin.users.length, "usuario", "usuarios")}`;
+  renderMyGroups();
+
+  const sorted = [...devices].sort((a, b) =>
+    (showsGroups() ? a.group.localeCompare(b.group) : 0) || b.online - a.online || a.name.localeCompare(b.name));
   devicesList.replaceChildren(
     ...sorted.map((d) => {
-      const btn = el("button", "conv-item" + (current === d.name ? " active" : ""));
-      btn.type = "button";
-      btn.addEventListener("click", () => openDevice(d.name));
-
+      const btn = button("", "conv-item" + (current === d.id ? " active" : ""), () => openDevice(d.id));
       const info = el("span", "user-info");
-      info.append(el("span", "user-name", d.name), el("span", "user-status", deviceStatusText(d)));
+      const status = showsGroups() ? `${d.group || "Sin grupo"} · ${deviceStatusText(d)}` : deviceStatusText(d);
+      info.append(el("span", "user-name", d.name), el("span", "user-status", status));
 
       const badge = el("span", "pending", d.pending);
       badge.title = "Avisos sin confirmar";
@@ -128,31 +175,138 @@ function renderSidebar() {
 }
 
 function renderHeader() {
+  liveButtons.replaceChildren();
+  if (current === ADMIN_VIEW) {
+    roomTitle.textContent = "Grupos y usuarios";
+    roomSub.replaceChildren("Cada usuario ve y envía avisos solo a las pantallas de los grupos que administra.");
+    return;
+  }
   if (current === "*") {
-    roomTitle.textContent = "Todas las pantallas";
+    roomTitle.textContent = me.isAdmin ? "Todas las pantallas" : "Todas mis pantallas";
     roomSub.replaceChildren(`${onlineCount.textContent} de ${devices.length} en línea`);
-    textInput.placeholder = "Aviso para todas las pantallas…";
-    liveButtons.replaceChildren();
+    textInput.placeholder = me.isAdmin ? "Aviso para todas las pantallas de todos los grupos…" : "Aviso para todas tus pantallas…";
     return;
   }
   const d = findDevice(current);
-  roomTitle.textContent = current;
+  roomTitle.textContent = d ? deviceLabel(d) : "";
   roomSub.replaceChildren(el("span", "dot " + (d?.online ? "online" : "offline")), d ? deviceStatusText(d) : "Desconectado");
-  textInput.placeholder = `Aviso para ${current}…`;
-  if (!canWatch) return liveButtons.replaceChildren();
+  textInput.placeholder = `Aviso para ${d?.name ?? ""}…`;
+  if (!me.isAdmin) return;
   liveButtons.replaceChildren(
     ...liveSources(d).map((s) => {
       const watching = live?.device === current && live.source === s.source && live.camera === s.camera;
-      const btn = el("button", "live-btn" + (watching ? " active" : ""), s.label);
-      btn.type = "button";
+      const btn = button(s.label, "live-btn" + (watching ? " active" : ""), () => watch(s));
       btn.disabled = !d?.online;
-      btn.addEventListener("click", () => watch(s));
       return btn;
     })
   );
 }
 
-// ---------- En vivo ----------
+// ---------- Grupos y usuarios (solo el admin) ----------
+
+// Lista de usuarios para elegir quién administra un grupo
+function managerSelect(selected) {
+  const select = el("select");
+  select.append(new Option("Solo el admin", ""));
+  for (const u of [...admin.users].sort((a, b) => a.name.localeCompare(b.name))) select.append(new Option(u.name, u.id));
+  select.value = selected || "";
+  return select;
+}
+
+function renderAdmin() {
+  if (!me?.isAdmin) return;
+  const keep = newGroupManager.value;
+  newGroupManager.replaceChildren(...managerSelect(keep).options);
+  newGroupManager.value = admin.users.some((u) => u.id === keep) ? keep : "";
+
+  const groups = [...admin.groups].sort((a, b) => a.name.localeCompare(b.name));
+  groupsList.replaceChildren(
+    ...(groups.length ? groups.map(groupRow) : [el("li", "system", "Aún no hay grupos. Crea uno arriba y elige qué usuario lo administra.")])
+  );
+  const users = [...admin.users].sort((a, b) => a.name.localeCompare(b.name));
+  usersList.replaceChildren(
+    ...(users.length ? users.map(userRow) : [el("li", "system", "Aún no hay usuarios. Crea uno para asignarle grupos.")])
+  );
+}
+
+function groupRow(g) {
+  const li = el("li", "user-row");
+  const info = el("div", "user-info");
+  info.append(el("span", "user-name", g.name), el("span", "user-status", `${plural(g.devices, "pantalla", "pantallas")} · ${g.online} en línea`));
+
+  const code = el("span", "user-code", g.code);
+  code.title = "Código de grupo: se escribe en la app Android";
+
+  const label = el("label", "manager");
+  const select = managerSelect(g.manager);
+  select.addEventListener("change", () => adminEmit("admin:update-group", { id: g.id, manager: select.value }));
+  label.append(el("span", null, "Lo administra"), select);
+
+  const actions = el("div", "row-actions");
+  actions.append(button("Renombrar", "row-btn", () => renameGroup(g)), button("Borrar", "row-btn danger", () => deleteGroup(g)));
+  li.append(info, code, label, actions);
+  return li;
+}
+
+function userRow(u) {
+  const li = el("li", "user-row");
+  const info = el("div", "user-info");
+  const groups = u.groups.length ? `Administra: ${u.groups.join(", ")}` : "Sin grupos asignados";
+  info.append(el("span", "user-name", u.name), el("span", "user-status", groups));
+  const actions = el("div", "row-actions");
+  actions.append(button("Cambiar contraseña", "row-btn", () => changePassword(u)), button("Borrar", "row-btn danger", () => deleteUser(u)));
+  li.append(info, actions);
+  return li;
+}
+
+function adminEmit(event, data, done) {
+  socket.emit(event, data, (res) => {
+    adminError.hidden = res.ok;
+    if (!res.ok) adminError.textContent = res.error;
+    if (res.ok && done) done();
+  });
+}
+
+function renameGroup(g) {
+  const name = prompt("Nuevo nombre del grupo:", g.name);
+  if (name == null || name.trim() === g.name) return;
+  adminEmit("admin:update-group", { id: g.id, name });
+}
+
+function deleteGroup(g) {
+  const screens = g.devices ? ` Sus ${plural(g.devices, "pantalla", "pantallas")} se desconectarán hasta que se les escriba otro código.` : "";
+  if (!confirm(`¿Borrar el grupo ${g.name}?${screens}`)) return;
+  adminEmit("admin:delete-group", { id: g.id });
+}
+
+function changePassword(u) {
+  const password = prompt(`Nueva contraseña para ${u.name} (mínimo 4 caracteres):`);
+  if (password == null) return;
+  adminEmit("admin:set-password", { id: u.id, password });
+}
+
+function deleteUser(u) {
+  const groups = u.groups.length ? ` Sus grupos (${u.groups.join(", ")}) quedarán sin usuario, a cargo del admin.` : "";
+  if (!confirm(`¿Borrar a ${u.name}?${groups}`)) return;
+  adminEmit("admin:delete-user", { id: u.id });
+}
+
+$("group-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  adminEmit("admin:create-group", { name: $("new-group-name").value.trim(), manager: newGroupManager.value }, () => {
+    $("new-group-name").value = "";
+  });
+});
+
+$("user-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  adminEmit("admin:create-user", { name: $("new-user-name").value.trim(), password: $("new-user-password").value }, () => {
+    $("new-user-name").value = "";
+    $("new-user-password").value = "";
+  });
+});
+
+// ---------- En vivo (solo el admin) ----------
 
 function liveSources(d) {
   const cameras = (d?.cameras || []).map((c) => ({ source: "camera", camera: c.id, label: c.label }));
@@ -164,8 +318,9 @@ function setLiveStatus(text) {
 }
 
 function watch(s) {
+  const d = findDevice(current);
   live = { device: current, source: s.source, camera: s.camera, label: s.label };
-  liveTitle.textContent = `${current} · ${s.source === "screen" ? "Pantalla" : s.label}`;
+  liveTitle.textContent = `${d ? deviceLabel(d) : ""} · ${s.source === "screen" ? "Pantalla" : s.label}`;
   setLiveStatus(s.source === "screen" ? "Conectando… La primera vez alguien debe aceptar en la pantalla." : "Conectando…");
   liveCanvas.hidden = true;
   liveView.hidden = false;
@@ -202,76 +357,87 @@ $("live-close").addEventListener("click", () => {
 });
 
 function renderAll() {
+  const inAdmin = current === ADMIN_VIEW;
+  adminView.hidden = !inAdmin;
+  messagesList.hidden = inAdmin;
+  sendForm.hidden = inAdmin;
+  if (inAdmin) sendError.hidden = true;
   renderSidebar();
   renderHeader();
   renderMessages();
+  renderAdmin();
 }
 
-function openDevice(name) {
-  if (live && live.device !== name) stopLive();
-  current = name;
+function openDevice(id) {
+  if (live && live.device !== id) stopLive();
+  current = id;
   sendError.hidden = true;
+  adminError.hidden = true;
   renderAll();
-  textInput.focus();
+  if (id === ADMIN_VIEW) $("new-group-name").focus();
+  else textInput.focus();
 }
 
 allItem.addEventListener("click", () => openDevice("*"));
+adminItem.addEventListener("click", () => openDevice(ADMIN_VIEW));
 
 // ---------- Entrar ----------
 
-function join(name) {
-  socket.emit("panel:join", { name }, (res) => {
-    if (!res.ok) {
-      clearName();
-      loginError.textContent = res.error;
-      loginError.hidden = false;
-      return;
-    }
-    me = res.name;
-    canWatch = !!res.canWatch;
-    saveName(me);
+function showLogin(error) {
+  stopLive();
+  me = null;
+  current = "*";
+  clearToken();
+  sendError.hidden = true;
+  offlineBanner.hidden = true;
+  loginError.hidden = !error;
+  loginError.textContent = error || "";
+  loginPassword.value = "";
+  panelView.hidden = true;
+  loginView.hidden = false;
+  (loginUser.value ? loginPassword : loginUser).focus();
+}
+
+// credentials: { name, password } al escribirlos, o { token } al volver a la página o reconectar
+function join(credentials) {
+  socket.emit("panel:join", credentials, (res) => {
+    if (!res.ok) return showLogin(res.error);
+    me = res.user;
+    saveToken(res.token);
     devices = res.devices;
     messages = res.messages;
-    $("me").textContent = me;
+    admin = res.admin || { groups: [], users: [] };
+    $("me").textContent = me.name;
     // La dirección de esta página (ej. https://pantallas.allsx.me); desde localhost, las de la red local
     const isLocal = ["localhost", "127.0.0.1"].includes(location.hostname);
     const urls = isLocal ? res.serverUrls : [location.origin];
     $("server-urls").replaceChildren(...urls.map((url) => el("code", null, url)));
     $("apk-urls").replaceChildren(...urls.map((url) => el("code", null, `${url}/avisos.apk`)));
-    if (current !== "*" && !findDevice(current)) current = "*";
+    if ((current === ADMIN_VIEW && !me.isAdmin) || (current !== "*" && current !== ADMIN_VIEW && !findDevice(current))) current = "*";
 
     offlineBanner.hidden = true;
+    loginError.hidden = true;
     loginView.hidden = true;
     panelView.hidden = false;
     renderAll();
     // Al reconectar con el servidor, retomar la vista en vivo
-    if (live && canWatch && live.device === current) watch(live);
+    if (live && me.isAdmin && live.device === current) watch(live);
     else stopLive();
-    textInput.focus();
+    if (current !== ADMIN_VIEW && document.activeElement === document.body) textInput.focus();
   });
 }
 
 loginForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  join(nameInput.value.trim());
+  join({ name: loginUser.value.trim(), password: loginPassword.value });
 });
 
 // ---------- Salir ----------
 
 $("logout").addEventListener("click", () => {
-  stopLive();
   socket.emit("panel:leave");
-  me = null;
-  canWatch = false;
-  current = "*";
-  clearName();
-  sendError.hidden = true;
-  offlineBanner.hidden = true;
-  loginError.hidden = true;
-  nameInput.value = "";
-  panelView.hidden = true;
-  loginView.hidden = false;
-  nameInput.focus();
+  loginUser.value = "";
+  showLogin();
 });
 
 // ---------- Enviar ----------
@@ -292,19 +458,40 @@ sendForm.addEventListener("submit", (e) => {
 socket.on("devices", (list) => {
   devices = list;
   if (!me) return;
+  if (current !== "*" && current !== ADMIN_VIEW && !findDevice(current)) {
+    stopLive();
+    current = "*";
+    return renderAll();
+  }
   renderSidebar();
   renderHeader();
+});
+
+socket.on("admin", (data) => {
+  admin = data;
+  if (!me?.isAdmin) return;
+  renderSidebar();
+  renderAdmin();
 });
 
 socket.on("message", (msg) => {
   const i = messages.findIndex((m) => m.id === msg.id);
   if (i >= 0) messages[i] = msg;
   else messages.push(msg);
-  if (!me || (current !== "*" && msg.to !== current)) return;
+  if (!me || current === ADMIN_VIEW || (current !== "*" && msg.device !== current)) return;
 
   const existing = messagesList.querySelector(`[data-id="${msg.id}"]`);
   if (existing) existing.replaceWith(messageElement(msg));
   else renderMessages();
+});
+
+// Se borró el usuario o le cambiaron la contraseña
+socket.on("session:ended", (reason) => showLogin(reason));
+
+// El admin le asignó o quitó grupos: se vuelve a pedir todo
+socket.on("session:refresh", () => {
+  const token = loadToken();
+  if (me && token) join({ token });
 });
 
 socket.on("live:frame", async (frame, rotation) => {
@@ -329,19 +516,23 @@ socket.on("live:status", (text) => {
 // Otro panel cambió lo que se ve de esta pantalla
 socket.on("live:source", (src) => {
   if (!live) return;
-  const s = liveSources(findDevice(live.device)).find((x) => x.source === src.type && (src.type === "screen" || x.camera === src.camera));
+  const d = findDevice(live.device);
+  const s = liveSources(d).find((x) => x.source === src.type && (src.type === "screen" || x.camera === src.camera));
   if (!s || (s.source === live.source && s.camera === live.camera)) return;
   Object.assign(live, s);
-  liveTitle.textContent = `${live.device} · ${s.source === "screen" ? "Pantalla" : s.label}`;
+  liveTitle.textContent = `${d ? deviceLabel(d) : ""} · ${s.source === "screen" ? "Pantalla" : s.label}`;
   renderHeader();
 });
 
 socket.on("connect", () => {
-  const saved = me || loadName();
-  if (saved) join(saved);
+  const token = loadToken();
+  if (token) join({ token });
 });
 
 socket.on("disconnect", () => {
   if (me) offlineBanner.hidden = false;
   if (live) setLiveStatus("Sin conexión con el servidor…");
 });
+
+// La sesión de antes de los usuarios guardaba la palabra de acceso
+try { localStorage.removeItem("panel-name"); } catch {}

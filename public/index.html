@@ -11,8 +11,10 @@
   <section id="login" class="login">
     <form id="login-form" class="card">
       <h1>Panel de avisos</h1>
-      <label for="name">Palabra de acceso</label>
-      <input id="name" type="password" maxlength="24" autocomplete="off" autofocus />
+      <label for="login-user">Usuario</label>
+      <input id="login-user" maxlength="24" autocomplete="username" autocapitalize="none" autofocus />
+      <label for="login-password">Contraseña</label>
+      <input id="login-password" type="password" autocomplete="current-password" />
       <p id="login-error" class="error" hidden></p>
       <button type="submit">Entrar</button>
       <a class="download" href="/avisos.apk" download>Descargar app Android</a>
@@ -23,14 +25,29 @@
   <main id="panel" class="chat" hidden>
     <aside class="sidebar">
       <div class="profile">
-        <span class="me-name">Enviando como <strong id="me"></strong></span>
+        <span class="me-name">Conectado como <strong id="me"></strong></span>
         <button id="logout" class="logout" type="button">Salir</button>
       </div>
+
+      <!-- Las pantallas entran a un grupo con su código -->
+      <div id="my-groups" class="group-code" hidden>
+        <span class="group-code-label">Códigos de tus grupos</span>
+        <ul id="my-groups-list" class="my-groups"></ul>
+        <span id="my-groups-hint" class="hint"></span>
+      </div>
+
+      <button id="admin-item" class="conv-item" type="button" hidden>
+        <span class="hash">@</span>
+        <span class="user-info">
+          <span class="user-name">Grupos y usuarios</span>
+          <span id="admin-status" class="user-status"></span>
+        </span>
+      </button>
 
       <button id="all" class="conv-item" type="button">
         <span class="hash">*</span>
         <span class="user-info">
-          <span class="user-name">Todas las pantallas</span>
+          <span id="all-name" class="user-name">Todas las pantallas</span>
           <span id="all-status" class="user-status"></span>
         </span>
       </button>
@@ -66,6 +83,28 @@
         </div>
         <canvas id="live-canvas" class="live-canvas" hidden></canvas>
       </div>
+
+      <!-- Grupos y usuarios (solo el admin) -->
+      <div id="admin-view" class="users" hidden>
+        <p id="admin-error" class="send-error" hidden></p>
+
+        <h3 class="section-title">Grupos</h3>
+        <form id="group-form" class="user-form">
+          <input id="new-group-name" maxlength="40" autocomplete="off" placeholder="Nombre del grupo (ej. Sucursal Centro)" />
+          <select id="new-group-manager" aria-label="Usuario que lo administra"></select>
+          <button type="submit">Crear grupo</button>
+        </form>
+        <ul id="groups-list" class="users-list"></ul>
+
+        <h3 class="section-title">Usuarios</h3>
+        <form id="user-form" class="user-form">
+          <input id="new-user-name" maxlength="24" autocomplete="off" placeholder="Nombre del usuario" />
+          <input id="new-user-password" type="password" autocomplete="new-password" placeholder="Contraseña (mín. 4)" />
+          <button type="submit">Crear usuario</button>
+        </form>
+        <ul id="users-list" class="users-list"></ul>
+      </div>
+
       <ol id="messages" class="messages"></ol>
       <p id="send-error" class="send-error" hidden></p>
       <form id="send-form" class="composer">
