@@ -7,20 +7,13 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.app.UiModeManager;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
-import android.content.res.Configuration;
 import android.graphics.drawable.Icon;
 import android.hardware.camera2.CameraAccessException;
-import android.media.AudioAttributes;
-import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.media.projection.MediaProjection;
-import android.net.Uri;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Handler;
@@ -50,8 +43,7 @@ public class MessageService extends Service {
     private static final String EXTRA_RESULT_CODE = "resultCode";
     private static final String EXTRA_RESULT_DATA = "resultData";
 
-    private static final String OLD_CHANNEL_MESSAGES = "avisos";
-    private static final String CHANNEL_MESSAGES = "avisos_sonido";
+    private static final String CHANNEL_MESSAGES = "avisos";
     private static final String CHANNEL_CONNECTION = "conexion";
     private static final int CONNECTION_NOTIFICATION_ID = 1;
 
@@ -65,8 +57,6 @@ public class MessageService extends Service {
     private final Handler main = new Handler(Looper.getMainLooper());
     private volatile Socket socket;
     private NotificationManager notifications;
-    /** Android TV: no muestra las notificaciones, así que el aviso se presenta abriendo la app. */
-    private boolean tv;
 
     /** Captura de pantalla; sigue activa entre transmisiones para no pedir permiso cada vez. */
     private ScreenStreamer screen;
@@ -95,7 +85,6 @@ public class MessageService extends Service {
     public void onCreate() {
         super.onCreate();
         notifications = getSystemService(NotificationManager.class);
-        tv = getSystemService(UiModeManager.class).getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
         createChannels();
         status = "Conectando…";
         updateForeground(false, false);
@@ -193,14 +182,9 @@ public class MessageService extends Service {
             return;
         }
 
-        boolean isNew = Store.addPending(this, msg);
+        Store.addPending(this, msg);
         showMessage(msg);
         broadcastChanged();
-        // Las teles no muestran notificaciones ni las hacen sonar: suena desde la app y se abre encima de lo que se esté viendo
-        if (isNew && tv) main.post(() -> {
-            playSound();
-            openApp();
-        });
     }
 
     private void acknowledge(String id) {
@@ -373,18 +357,9 @@ public class MessageService extends Service {
     // ---------- Notificaciones ----------
 
     private void createChannels() {
-        // Android no deja cambiar el sonido de un canal ya creado: el anterior se reemplaza por uno nuevo
-        notifications.deleteNotificationChannel(OLD_CHANNEL_MESSAGES);
-
         NotificationChannel messages = new NotificationChannel(CHANNEL_MESSAGES, "Avisos", NotificationManager.IMPORTANCE_HIGH);
         messages.setDescription("Avisos que llegan desde el panel");
         messages.enableVibration(true);
-        // En la tele suena desde playSound(); con el canal sonaría dos veces en las que sí lo reproducen
-        messages.setSound(tv ? null : soundUri(), tv ? null : new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build());
-        messages.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
 
         NotificationChannel connection = new NotificationChannel(CHANNEL_CONNECTION, "Conexión", NotificationManager.IMPORTANCE_LOW);
         connection.setDescription("Estado de la conexión con el servidor");
@@ -392,37 +367,6 @@ public class MessageService extends Service {
 
         notifications.createNotificationChannel(messages);
         notifications.createNotificationChannel(connection);
-    }
-
-    private Uri soundUri() {
-        return Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName() + "/" + R.raw.aviso);
-    }
-
-    /** En la tele el volumen que se usa es el de lo que se está viendo. */
-    private void playSound() {
-        AudioAttributes attributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build();
-        int session = getSystemService(AudioManager.class).generateAudioSessionId();
-        MediaPlayer player = MediaPlayer.create(this, R.raw.aviso, attributes, session);
-        if (player == null) {
-            Log.w("Avisos", "No se pudo reproducir el sonido del aviso");
-            return;
-        }
-        player.setOnCompletionListener(MediaPlayer::release);
-        player.start();
-    }
-
-    /** Desde Android 10 abrirla en segundo plano requiere el permiso "Mostrar sobre otras apps". */
-    private void openApp() {
-        if (!BootReceiver.canOpenOnBoot(this)) return;
-        try {
-            startActivity(new Intent(this, MainActivity.class)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP));
-        } catch (RuntimeException e) {
-            Log.w("Avisos", "No se pudo abrir la app para mostrar el aviso", e);
-        }
     }
 
     private PendingIntent openAppIntent() {

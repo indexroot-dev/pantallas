@@ -69,17 +69,15 @@ final class Store {
         return list;
     }
 
-    /** Devuelve false si ya estaba (el servidor lo reenvía al reconectar). */
-    static synchronized boolean addPending(Context c, JSONObject msg) {
+    static synchronized void addPending(Context c, JSONObject msg) {
         String id = msg.optString("id");
         JSONArray array = readArray(c, KEY_PENDING);
         for (int i = 0; i < array.length(); i++) {
             JSONObject existing = array.optJSONObject(i);
-            if (existing != null && id.equals(existing.optString("id"))) return false;
+            if (existing != null && id.equals(existing.optString("id"))) return;
         }
         array.put(msg);
         prefs(c).edit().putString(KEY_PENDING, array.toString()).apply();
-        return true;
     }
 
     static synchronized void removePending(Context c, String id) {
